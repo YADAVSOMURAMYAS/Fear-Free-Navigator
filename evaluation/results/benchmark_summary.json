@@ -1,0 +1,12 @@
+{
+  "n_routes": 7,
+  "avg_safety_gain": 0.16,
+  "avg_time_cost_min": 0.76,
+  "worth_it_count": 7,
+  "avg_safe_safety": 64.36,
+  "avg_fast_safety": 64.2,
+  "avg_safe_time_min": 13.74,
+  "avg_fast_time_min": 12.99,
+  "alpha": 0.7,
+  "hour": 22
+}
