@@ -1,8 +1,0 @@
-route_name,description,safe_avg_safety,fast_avg_safety,safe_min_safety,fast_min_safety,safe_time_min,fast_time_min,safe_dist_km,fast_dist_km,safety_gain,time_cost_min,safe_dangerous_segs,fast_dangerous_segs,safe_grade,fast_grade,worth_it
-MG Road → Koramangala,Busy commercial to residential area,69.4,65.7,56.5,48.0,11.4,11.2,8.11,7.3,3.7,0.2,0,0,B,B,True
-Majestic → Indiranagar,High-crime zone to safer area,70.8,70.8,49.2,49.2,14.6,14.6,10.1,10.1,0.0,0.0,0,0,B,B,True
-Shivajinagar → Jayanagar,North to south Bengaluru,62.3,65.5,30.4,46.5,14.3,13.9,8.7,9.49,-3.2,0.4,0,0,B,B,True
-KR Market → HSR Layout,Crime hotspot to safe residential,59.4,58.6,23.5,20.1,10.7,10.5,7.9,7.78,0.8,0.2,1,1,C,C,True
-Hebbal → MG Road,Northern suburb to city center,69.0,69.0,30.7,30.7,5.8,5.8,3.46,3.46,0.0,0.0,0,0,B,B,True
-Malleswaram → BTM Layout,Residential to tech hub,61.9,62.0,19.3,28.7,22.2,19.5,14.7,13.54,-0.1,2.7,3,1,B,B,True
-Brigade Road → Banashankari,Commercial to residential,57.7,57.8,24.7,30.7,17.2,15.4,10.16,9.69,-0.1,1.8,3,0,C,C,True
