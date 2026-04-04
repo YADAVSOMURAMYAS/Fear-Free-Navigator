@@ -32,14 +32,24 @@ from typing import Optional
 
 log = logging.getLogger("routing.dijkstra")
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
 DATA_PROCESSED = Path("data/processed")
 ARTIFACTS      = Path("ai/ml/artifacts")
 
-# ── Constants ──────────────────────────────────────────────────────────────────
-DEFAULT_ALPHA      = 0.7     # safety weight
-MIN_SAFETY_SCORE   = 1.0     # avoid division by zero
-DEFAULT_HOUR       = 22      # default routing hour (10 PM)
+DEFAULT_ALPHA    = 0.7
+MIN_SAFETY_SCORE = 1.0
+DEFAULT_HOUR     = 22
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# HELPER
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _sf(val, default: float) -> float:
+    """Safe float conversion — graphml stores all values as strings."""
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return float(default)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -48,12 +58,6 @@ DEFAULT_HOUR       = 22      # default routing hour (10 PM)
 
 @lru_cache(maxsize=1)
 def load_graph():
-    """
-    Loads the scored road graph.
-    Tries ML-scored graph first, falls back to base graph.
-    Cached — loads once per process.
-    """
-    # Try scored graph first
     scored_path = DATA_PROCESSED / "bengaluru_scored_graph.graphml"
     base_path   = Path("data/raw/bengaluru_graph.graphml")
 
@@ -64,42 +68,41 @@ def load_graph():
         log.info(f"Loading base graph: {base_path}")
         G = ox.load_graphml(base_path)
     else:
-        raise FileNotFoundError(
-            "No graph found. Run ingestion pipeline first."
-        )
+        raise FileNotFoundError("No graph found. Run ingestion pipeline first.")
 
     log.info(f"Graph loaded: {len(G.nodes):,} nodes, {len(G.edges):,} edges")
     return G
 
 
 def inject_ml_scores(G, hour: int = 22):
-    """
-    Loads ML-predicted safety scores from feature store
-    and injects them into graph edges.
-    Called when scored graph is not available.
-    """
     ml_path = DATA_PROCESSED / "bengaluru_feature_store_ml.csv"
     if not ml_path.exists():
-        log.warning("ML scores not found. Using preliminary scores.")
+        log.warning("ML scores not found. Using default score 40.")
+        for u, v, k, data in G.edges(data=True, keys=True):
+            data["safety_score"] = 40.0
         return G
 
     log.info("Injecting ML safety scores into graph edges ...")
     df = pd.read_csv(ml_path)
 
-    # Build lookup
     score_lookup = {}
     for _, row in df.iterrows():
         key = (str(row["u"]), str(row["v"]), str(row["key"]))
-        score_lookup[key] = float(row.get("safety_score_ml", 40.0))
+        score_lookup[key] = _sf(row.get("safety_score_ml", 40.0), 40.0)
 
     injected = 0
+    missing  = 0
     for u, v, k, data in G.edges(data=True, keys=True):
         lookup_key = (str(u), str(v), str(k))
-        score = score_lookup.get(lookup_key, 40.0)
-        data["safety_score"] = score
-        injected += 1
+        score = score_lookup.get(lookup_key)
+        if score is not None:
+            data["safety_score"] = score
+            injected += 1
+        else:
+            data["safety_score"] = 40.0
+            missing += 1
 
-    log.info(f"Injected scores into {injected:,} edges")
+    log.info(f"Injected: {injected:,} | Default: {missing:,}")
     return G
 
 
@@ -107,39 +110,86 @@ def inject_ml_scores(G, hour: int = 22):
 # 2.  WEIGHT COMPUTATION
 # ──────────────────────────────────────────────────────────────────────────────
 
-def compute_edge_weights(G, alpha: float = DEFAULT_ALPHA, hour: int = DEFAULT_HOUR):
+def compute_edge_weights(
+    G,
+    alpha: float = DEFAULT_ALPHA,
+    hour:  int   = DEFAULT_HOUR,
+):
     """
-    Computes composite edge weights for routing.
+    Time-aware edge weights with aggressive night penalty.
 
-    Formula:
-        weight = alpha * (100/safety_score) + (1-alpha) * travel_time_norm
-
-    Higher weight = edge avoided (Dijkstra finds minimum weight path).
-    Low safety score → high weight → avoided when alpha > 0.
-    High travel time → high weight → avoided when alpha < 1.
+    At night (20:00-06:00):
+      - Crime penalty is EXPONENTIAL (6x at 2AM)
+      - Dark roads get hard lighting floor penalty
+      - Commercial activity collapse penalty
     """
-    # Get travel time range for normalisation
-    times = [
-        data.get("travel_time", 60)
-        for _, _, data in G.edges(data=True)
-    ]
-    max_time = max(times) if times else 300
-    min_time = min(times) if times else 1
+    if   6  <= hour < 17: period = "day"
+    elif 17 <= hour < 20: period = "evening"
+    elif 20 <= hour < 24: period = "night"
+    else:                 period = "late_night"
+
+    # Exponential crime multipliers
+    CRIME_EXP = {
+        "day":        1.0,
+        "evening":    1.8,
+        "night":      3.5,
+        "late_night": 6.0,
+    }
+    # Dark road penalty at night
+    LIGHTING_FLOOR = {
+        "day":        0.0,
+        "evening":    5.0,
+        "night":      18.0,
+        "late_night": 30.0,
+    }
+    # Commercial collapse penalty
+    COMMERCIAL_PENALTY = {
+        "day":        0.0,
+        "evening":    3.0,
+        "night":      12.0,
+        "late_night": 20.0,
+    }
+
+    ce = CRIME_EXP[period]
+    lf = LIGHTING_FLOOR[period]
+    cp = COMMERCIAL_PENALTY[period]
+
+    times   = [_sf(d.get("travel_time", 60), 60) for _, _, d in G.edges(data=True)]
+    max_t   = max(times) if times else 300
+    min_t   = min(times) if times else 1
+    range_t = max(max_t - min_t, 1)
 
     for u, v, key, data in G.edges(data=True, keys=True):
-        safety = float(data.get("safety_score", 40.0))
-        safety = max(safety, MIN_SAFETY_SCORE)
 
-        travel_time = float(data.get("travel_time", 60.0))
+        base_score = float(np.clip(
+            _sf(data.get("safety_score",     40.0), 40.0), 0, 100
+        ))
+        luminosity  = _sf(data.get("luminosity_score", 35.0), 35.0)
+        crime       = _sf(data.get("crime_density",     0.15), 0.15)
+        commercial  = _sf(data.get("commercial_score",   0.3),  0.3)
+        lum_norm    = float(np.clip(luminosity / 100.0, 0, 1))
 
-        # Normalise travel time to 0-100 scale
-        time_norm = (travel_time - min_time) / (max_time - min_time + 1) * 100
+        # 1. Exponential crime penalty
+        crime_pen = float((crime ** 0.5) * 15 * ce)
 
-        # Composite weight
-        # alpha=1 → only safety matters
-        # alpha=0 → only time matters
+        # 2. Darkness penalty — only at night
+        dark_pen = float(max(0.0, (1.0 - lum_norm) - 0.35) * lf)
+
+        # 3. Commercial collapse penalty
+        comm_pen = float(max(0.0, 0.6 - commercial) * cp)
+
+        # Temporal safety score clamped 1-100
+        temporal_safety = float(np.clip(
+            base_score - crime_pen - dark_pen - comm_pen,
+            1.0, 100.0
+        ))
+
+        travel_time = _sf(data.get("travel_time", 60.0), 60.0)
+        time_norm   = (travel_time - min_t) / range_t * 100
+
+        data["temporal_safety"]  = round(temporal_safety, 2)
         data["composite_weight"] = (
-            alpha * (100.0 / safety) +
+            alpha * (100.0 / max(temporal_safety, MIN_SAFETY_SCORE)) +
             (1 - alpha) * time_norm
         )
 
@@ -151,7 +201,6 @@ def compute_edge_weights(G, alpha: float = DEFAULT_ALPHA, hour: int = DEFAULT_HO
 # ──────────────────────────────────────────────────────────────────────────────
 
 def find_nearest_node(G, lat: float, lon: float) -> int:
-    """Finds the nearest graph node to a lat/lon coordinate."""
     return ox.nearest_nodes(G, lon, lat)
 
 
@@ -161,10 +210,6 @@ def compute_route(
     dest_node: int,
     weight: str = "composite_weight",
 ) -> Optional[list]:
-    """
-    Runs Dijkstra on the graph.
-    Returns list of node IDs or None if no path found.
-    """
     try:
         return nx.shortest_path(G, orig_node, dest_node, weight=weight)
     except nx.NetworkXNoPath:
@@ -180,72 +225,69 @@ def compute_route(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def compute_route_stats(G, route: list, hour: int = 22) -> dict:
-    """
-    Computes statistics for a route.
-    Returns dict with safety scores, travel time, coordinates.
-    """
     if not route or len(route) < 2:
         return {}
 
-    edge_scores    = []
-    edge_times     = []
-    edge_lengths   = []
-    segments       = []
-    coords         = []
+    edge_scores  = []
+    edge_times   = []
+    edge_lengths = []
+    segments     = []
+    coords       = []
 
     for node in route:
         coords.append([
-            G.nodes[node]["y"],
-            G.nodes[node]["x"],
+            _sf(G.nodes[node]["y"], 12.97),
+            _sf(G.nodes[node]["x"], 77.59),
         ])
 
     for u, v in zip(route, route[1:]):
         data = G[u][v][0]
 
-        score  = float(data.get("safety_score",  40.0))
-        ttime  = float(data.get("travel_time",   60.0))
-        length = float(data.get("length",        50.0))
-        hw     = data.get("highway", "unknown")
+        score  = _sf(
+            data.get("temporal_safety", data.get("safety_score", 40.0)),
+            40.0
+        )
+        ttime  = _sf(data.get("travel_time", 60.0), 60.0)
+        length = _sf(data.get("length",      50.0), 50.0)
+
+        hw = data.get("highway", "unknown")
         if isinstance(hw, list):
             hw = hw[0]
+        hw = str(hw)
 
         edge_scores.append(score)
         edge_times.append(ttime)
         edge_lengths.append(length)
 
         segments.append({
-            "u":              u,
-            "v":              v,
-            "safety_score":   round(score, 1),
-            "travel_time_s":  round(ttime, 1),
-            "length_m":       round(length, 1),
-            "highway":        hw,
-            "name":           str(data.get("name", "") or ""),
-            "safety_grade":   _score_to_grade(score),
-            "safety_color":   _score_to_color(score),
+            "u":             u,
+            "v":             v,
+            "safety_score":  round(score,  1),
+            "travel_time_s": round(ttime,  1),
+            "length_m":      round(length, 1),
+            "highway":       hw,
+            "name":          str(data.get("name", "") or ""),
+            "safety_grade":  _score_to_grade(score),
+            "safety_color":  _score_to_color(score),
         })
 
-    total_time_min = sum(edge_times) / 60
+    total_time_min = sum(edge_times)   / 60
     total_dist_km  = sum(edge_lengths) / 1000
     avg_safety     = float(np.mean(edge_scores))
     min_safety     = float(np.min(edge_scores))
-
-    # Find dangerous segments (score < 30)
-    dangerous = [
-        s for s in segments if s["safety_score"] < 30
-    ]
+    dangerous      = [s for s in segments if s["safety_score"] < 30]
 
     return {
-        "coords":           coords,
-        "segments":         segments,
-        "avg_safety_score": round(avg_safety, 1),
-        "min_safety_score": round(min_safety, 1),
-        "total_time_min":   round(total_time_min, 1),
-        "total_dist_km":    round(total_dist_km, 2),
-        "n_segments":       len(segments),
-        "dangerous_count":  len(dangerous),
-        "hour":             hour,
-        "safety_grade":     _score_to_grade(avg_safety),
+        "coords":            coords,
+        "segments":          segments,
+        "avg_safety_score":  round(avg_safety,     1),
+        "min_safety_score":  round(min_safety,     1),
+        "total_time_min":    round(total_time_min, 1),
+        "total_dist_km":     round(total_dist_km,  2),
+        "n_segments":        len(segments),
+        "dangerous_count":   len(dangerous),
+        "hour":              hour,
+        "safety_grade":      _score_to_grade(avg_safety),
     }
 
 
@@ -266,7 +308,7 @@ def _score_to_color(score: float) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 5.  DUAL ROUTE (SAFE + FAST)
+# 5.  DUAL ROUTE
 # ──────────────────────────────────────────────────────────────────────────────
 
 def get_dual_routes(
@@ -277,31 +319,16 @@ def get_dual_routes(
     alpha:       float = DEFAULT_ALPHA,
     hour:        int   = DEFAULT_HOUR,
 ) -> dict:
-    """
-    Main routing function — returns BOTH safe and fast routes.
-
-    Args:
-        origin_lat, origin_lon : start coordinates
-        dest_lat,   dest_lon   : end coordinates
-        alpha                  : safety weight 0-1
-        hour                   : hour of day for time-aware scoring
-
-    Returns dict with:
-        safe_route : safety-optimized route stats + coords
-        fast_route : time-optimized route stats + coords
-        comparison : side-by-side comparison metrics
-    """
     G = load_graph()
 
-    # Inject ML scores if not already present
+    # Inject ML scores if missing
     sample_edge = next(iter(G.edges(data=True)))[2]
     if "safety_score" not in sample_edge:
         G = inject_ml_scores(G, hour)
 
-    # Compute composite weights
+    # Compute time-aware weights
     G = compute_edge_weights(G, alpha=alpha, hour=hour)
 
-    # Find nearest nodes
     orig_node = find_nearest_node(G, origin_lat, origin_lon)
     dest_node = find_nearest_node(G, dest_lat,   dest_lon)
 
@@ -311,10 +338,7 @@ def get_dual_routes(
         f"alpha={alpha} hour={hour}"
     )
 
-    # Safe route — composite weight
     safe_nodes = compute_route(G, orig_node, dest_node, "composite_weight")
-
-    # Fast route — travel time only
     fast_nodes = compute_route(G, orig_node, dest_node, "travel_time")
 
     if safe_nodes is None or fast_nodes is None:
@@ -323,7 +347,6 @@ def get_dual_routes(
     safe_stats = compute_route_stats(G, safe_nodes, hour)
     fast_stats = compute_route_stats(G, fast_nodes, hour)
 
-    # Comparison metrics
     time_penalty = safe_stats["total_time_min"] - fast_stats["total_time_min"]
     safety_gain  = safe_stats["avg_safety_score"] - fast_stats["avg_safety_score"]
 
@@ -352,13 +375,13 @@ def get_dual_routes(
     )
 
     return {
-        "safe_route": safe_stats,
-        "fast_route": fast_stats,
-        "comparison": comparison,
-        "alpha":      alpha,
-        "hour":       hour,
-        "origin":     {"lat": origin_lat, "lon": origin_lon},
-        "destination":{"lat": dest_lat,   "lon": dest_lon},
+        "safe_route":  safe_stats,
+        "fast_route":  fast_stats,
+        "comparison":  comparison,
+        "alpha":       alpha,
+        "hour":        hour,
+        "origin":      {"lat": origin_lat, "lon": origin_lon},
+        "destination": {"lat": dest_lat,   "lon": dest_lon},
     }
 
 
@@ -367,43 +390,35 @@ def get_dual_routes(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def run_test():
-    """
-    Tests routing between known Bengaluru landmarks.
-    MG Road → Koramangala
-    """
     logging.basicConfig(level=logging.INFO)
     log.info("=== routing/dijkstra.py TEST ===")
 
-    # MG Road → Koramangala
-    result = get_dual_routes(
-        origin_lat  = 12.9767,
-        origin_lon  = 77.6009,
-        dest_lat    = 12.9352,
-        dest_lon    = 77.6245,
-        alpha       = 0.7,
-        hour        = 22,
-    )
+    test_cases = [
+        ("MG Road → Koramangala",    12.9767, 77.6009, 12.9352, 77.6245),
+        ("Majestic → Indiranagar",   12.9767, 77.5713, 12.9718, 77.6412),
+        ("Shivajinagar → Jayanagar", 12.9839, 77.5929, 12.9220, 77.5833),
+    ]
 
-    if "error" in result:
-        log.error(f"Routing failed: {result['error']}")
-        return
-
-    print("\n" + "="*55)
-    print("ROUTING TEST RESULTS")
-    print("="*55)
-    print(f"SAFE  route: {result['safe_route']['avg_safety_score']:.1f} safety | "
-          f"{result['safe_route']['total_time_min']:.1f} min | "
-          f"{result['safe_route']['total_dist_km']:.1f} km")
-    print(f"FAST  route: {result['fast_route']['avg_safety_score']:.1f} safety | "
-          f"{result['fast_route']['total_time_min']:.1f} min | "
-          f"{result['fast_route']['total_dist_km']:.1f} km")
-    print(f"Safety gain : +{result['comparison']['safety_gain_points']:.1f} pts")
-    print(f"Time cost   : +{result['comparison']['time_penalty_min']:.1f} min")
-    print(f"Verdict     : {result['comparison']['recommendation']}")
-    print("="*55)
+    for name, olat, olon, dlat, dlon in test_cases:
+        print(f"\n── {name} ──")
+        for hour in [9, 22, 0]:
+            result = get_dual_routes(olat, olon, dlat, dlon, alpha=0.7, hour=hour)
+            if "error" in result:
+                print(f"  {hour:02d}:00 → ERROR: {result['error']}")
+                continue
+            safe = result["safe_route"]
+            fast = result["fast_route"]
+            gain = result["comparison"]["safety_gain_points"]
+            cost = result["comparison"]["time_penalty_min"]
+            print(
+                f"  {hour:02d}:00 | "
+                f"Safe: {safe['avg_safety_score']:.1f} | "
+                f"Fast: {fast['avg_safety_score']:.1f} | "
+                f"Gain: {gain:+.1f} | "
+                f"Cost: {cost:+.1f} min"
+            )
 
     log.info("=== TEST DONE ===")
-    return result
 
 
 if __name__ == "__main__":

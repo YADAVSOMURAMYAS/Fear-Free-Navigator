@@ -1,23 +1,24 @@
 import { useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api";
 
 export default function useHeatmap() {
   const [heatmapData, setHeatmapData] = useState([]);
-  const [loading, setLoading]         = useState(false);
+  const [loading,     setLoading]     = useState(false);
 
-  const fetchHeatmap = useCallback(async (sampleN = 3000) => {
+  const fetchHeatmap = useCallback(async (
+    sampleN = 3000,
+    city    = "Bengaluru",
+  ) => {
     setLoading(true);
     try {
-      const { data } = await axios.get("/heatmap", {
-        params: { sample_n: sampleN },
+      const { data } = await api.get("/heatmap", {
+        params: { sample_n: sampleN, city },
       });
-      // Convert to [lat, lon, intensity] format for Leaflet.heat
       const points = data.points.map(([lat, lon, score]) => [
         lat, lon, score / 100,
       ]);
       setHeatmapData(points);
     } catch (err) {
-      console.error("Heatmap fetch failed:", err);
     } finally {
       setLoading(false);
     }

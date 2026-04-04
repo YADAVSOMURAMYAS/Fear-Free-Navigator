@@ -1,6 +1,4 @@
-# ============================================================
-# Python
-# ============================================================
+# ── Python ─────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,164 +7,118 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-eggs/
-parts/
-var/
-sdist/
-develop-eggs/
-.installed.cfg
-lib/
-lib64/
-*.pyo
-*.pyd
-
-# Virtual environments
-venv/
+.eggs/
+.Python
 env/
-.env/
+venv/
 .venv/
 ENV/
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Distribution / packaging
-.Python
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.eggs/
-MANIFEST
+# ── Environment ────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.*
+!.env.example
 
-# Unit test / coverage
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-pytestdebug.log
+# ── Large data files ───────────────────────────────────────────────────────────
+# Graph files (too large for GitHub — 30-500MB each)
+data/raw/*.graphml
+data/processed/*.graphml
+data/india/city_graphs/
 
-# mypy / type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
+# Feature stores (large CSVs)
+data/india/features/
+data/processed/*.csv
+data/raw/*.csv
 
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
+# VIIRS numpy arrays and HDF5
+data/raw/viirs/
+data/india/viirs/
+data/raw/*.h5
 
-# ============================================================
-# Machine Learning / AI artifacts
-# ============================================================
-*.pkl
-*.pickle
-*.joblib
-*.h5
-*.hdf5
-*.pt
-*.pth
-*.onnx
-*.safetensors
-*.bin
-*.model
-*.weights
+# Raw GeoJSON / JSON dumps (large)
+data/raw/*.geojson
+data/raw/*.json
+data/india/city_pois/
+data/india/features/*.geojson
 
-# Keep eval_metrics and feature_cols (small JSON configs) but ignore large artifacts
+# Street view images
+data/raw/bengaluru_streetview_images/
+data/raw/*_images/
+
+# Keep small metadata files
+!data/raw/city_crime_index.json
+!data/raw/viirs_stats.json
+!data/india/city_metadata.json
+!data/india/city_index.csv
+
+# ── Cache directories ───────────────────────────────────────────────────────────
+cache/
+ingestion/cache/
+
+# ── ML Artifacts ───────────────────────────────────────────────────────────────
+# Keep metrics and feature list, ignore large model files
 ai/ml/artifacts/*.pkl
-ai/ml/artifacts/*.joblib
-ai/ml/artifacts/*.pt
-ai/ml/artifacts/*.h5
+ai/ml/artifacts/*.bin
+ai/ml/cache/
 
-# ============================================================
-# Node / React (frontend)
-# ============================================================
-node_modules/
+# Keep these small files
+!ai/ml/artifacts/eval_metrics.json
+!ai/ml/artifacts/india_eval_metrics.json
+!ai/ml/artifacts/feature_cols.json
+!ai/ml/artifacts/feature_importance.csv
+!ai/ml/artifacts/india_feature_importance.csv
+!ai/ml/artifacts/*.png
+
+# ── LLM Cache ──────────────────────────────────────────────────────────────────
+ai/llm/cache/
+
+# ── Node / Frontend ────────────────────────────────────────────────────────────
 frontend/node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-
-# React build output
 frontend/build/
+frontend/.pnp
+frontend/.pnp.js
+frontend/coverage/
 frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# ============================================================
-# Environment / secrets
-# ============================================================
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.crt
-secrets/
-credentials.json
-
-# ============================================================
-# Docker
-# ============================================================
-# Keep docker-compose.yml and Dockerfiles tracked
-.docker/
-
-# ============================================================
-# Data files
-# ============================================================
-data/raw/
-data/processed/*.csv
-data/processed/*.parquet
-data/processed/*.feather
-ingestion/cache/
-*.geojson.gz
-*.pbf
-
-# ============================================================
-# Databases
-# ============================================================
-db/data/
-*.db
-*.sqlite
-*.sqlite3
-
-# ============================================================
-# Logs
-# ============================================================
-*.log
-logs/
-*.out
-
-# ============================================================
-# OS / Editor
-# ============================================================
-.DS_Store
-Thumbs.db
-desktop.ini
-.idea/
+# ── IDE ────────────────────────────────────────────────────────────────────────
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
+.DS_Store
+Thumbs.db
 
-# ============================================================
-# Misc
-# ============================================================
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+logs/
+*.pid
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+# Keep docker-compose.yml but ignore volumes
+docker-volumes/
+
+# ── Test outputs ───────────────────────────────────────────────────────────────
+evaluation/results/*.png
+evaluation/results/*.csv
+evaluation/results/*.json
+!evaluation/results/benchmark_summary.json
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
 *.bak
 *.tmp
 *.temp
-.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/

@@ -26,8 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from api.routers import route, score, report, heatmap
-
+from api.routers import route, score, report, heatmap, cities
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -90,7 +89,7 @@ app.include_router(route.router)
 app.include_router(score.router)
 app.include_router(report.router)
 app.include_router(heatmap.router)
-
+app.include_router(cities.router)
 # ── Static files (frontend) ────────────────────────────────────────────────────
 frontend_path = Path("frontend")
 if frontend_path.exists():

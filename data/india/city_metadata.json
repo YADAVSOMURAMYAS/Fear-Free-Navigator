@@ -1,0 +1,606 @@
+{
+  "Bengaluru": {
+    "status": "cached",
+    "nodes": 327013,
+    "edges": 805971,
+    "state": "Karnataka",
+    "pop": "13.6M"
+  },
+  "Chennai": {
+    "status": "cached",
+    "nodes": 177628,
+    "edges": 443225,
+    "state": "Tamil Nadu",
+    "pop": "10.9M"
+  },
+  "Hyderabad": {
+    "status": "cached",
+    "nodes": 302666,
+    "edges": 783662,
+    "state": "Telangana",
+    "pop": "10.5M"
+  },
+  "Kochi": {
+    "status": "success",
+    "nodes": 76297,
+    "edges": 180814,
+    "state": "Kerala",
+    "pop": "2.1M",
+    "bbox": {
+      "north": 10.25,
+      "south": 9.75,
+      "east": 76.55,
+      "west": 76.05
+    }
+  },
+  "Coimbatore": {
+    "status": "cached",
+    "nodes": 137488,
+    "edges": 343794,
+    "state": "Tamil Nadu",
+    "pop": "2.2M"
+  },
+  "Visakhapatnam": {
+    "status": "success",
+    "nodes": 49142,
+    "edges": 127088,
+    "state": "Andhra Pradesh",
+    "pop": "2.0M",
+    "bbox": {
+      "north": 17.95,
+      "south": 17.45,
+      "east": 83.5,
+      "west": 82.95
+    }
+  },
+  "Madurai": {
+    "status": "success",
+    "nodes": 43040,
+    "edges": 111088,
+    "state": "Tamil Nadu",
+    "pop": "1.6M",
+    "bbox": {
+      "north": 10.15,
+      "south": 9.65,
+      "east": 78.4,
+      "west": 77.9
+    }
+  },
+  "Mysuru": {
+    "status": "success",
+    "nodes": 65941,
+    "edges": 181271,
+    "state": "Karnataka",
+    "pop": "1.2M",
+    "bbox": {
+      "north": 12.55,
+      "south": 12.05,
+      "east": 76.95,
+      "west": 76.45
+    }
+  },
+  "Thiruvananthapuram": {
+    "status": "success",
+    "nodes": 69652,
+    "edges": 167462,
+    "state": "Kerala",
+    "pop": "1.7M",
+    "bbox": {
+      "north": 8.75,
+      "south": 8.25,
+      "east": 77.25,
+      "west": 76.75
+    }
+  },
+  "Tiruchirappalli": {
+    "status": "success",
+    "nodes": 50790,
+    "edges": 132779,
+    "state": "Tamil Nadu",
+    "pop": "1.1M",
+    "bbox": {
+      "north": 11.05,
+      "south": 10.65,
+      "east": 78.95,
+      "west": 78.45
+    }
+  },
+  "Mumbai": {
+    "status": "cached",
+    "nodes": 85596,
+    "edges": 199265,
+    "state": "Maharashtra",
+    "pop": "20.7M"
+  },
+  "Pune": {
+    "status": "success",
+    "nodes": 100692,
+    "edges": 234116,
+    "state": "Maharashtra",
+    "pop": "6.6M",
+    "bbox": {
+      "north": 18.85,
+      "south": 18.25,
+      "east": 74.2,
+      "west": 73.55
+    }
+  },
+  "Ahmedabad": {
+    "status": "success",
+    "nodes": 97093,
+    "edges": 236467,
+    "state": "Gujarat",
+    "pop": "8.4M",
+    "bbox": {
+      "north": 23.3,
+      "south": 22.75,
+      "east": 72.9,
+      "west": 72.3
+    }
+  },
+  "Surat": {
+    "status": "success",
+    "nodes": 100597,
+    "edges": 240187,
+    "state": "Gujarat",
+    "pop": "6.6M",
+    "bbox": {
+      "north": 21.45,
+      "south": 20.9,
+      "east": 73.15,
+      "west": 72.6
+    }
+  },
+  "Nagpur": {
+    "status": "success",
+    "nodes": 71605,
+    "edges": 193792,
+    "state": "Maharashtra",
+    "pop": "2.9M",
+    "bbox": {
+      "north": 21.4,
+      "south": 20.85,
+      "east": 79.35,
+      "west": 78.8
+    }
+  },
+  "Vadodara": {
+    "status": "success",
+    "nodes": 65293,
+    "edges": 156174,
+    "state": "Gujarat",
+    "pop": "2.3M",
+    "bbox": {
+      "north": 22.55,
+      "south": 22.05,
+      "east": 73.45,
+      "west": 72.95
+    }
+  },
+  "Rajkot": {
+    "status": "success",
+    "nodes": 40946,
+    "edges": 109931,
+    "state": "Gujarat",
+    "pop": "1.8M",
+    "bbox": {
+      "north": 22.5,
+      "south": 22.05,
+      "east": 71.0,
+      "west": 70.55
+    }
+  },
+  "Nashik": {
+    "status": "success",
+    "nodes": 27578,
+    "edges": 70979,
+    "state": "Maharashtra",
+    "pop": "1.9M",
+    "bbox": {
+      "north": 20.2,
+      "south": 19.75,
+      "east": 74.1,
+      "west": 73.6
+    }
+  },
+  "Aurangabad": {
+    "status": "success",
+    "nodes": 35673,
+    "edges": 92481,
+    "state": "Maharashtra",
+    "pop": "1.4M",
+    "bbox": {
+      "north": 20.1,
+      "south": 19.65,
+      "east": 75.55,
+      "west": 75.05
+    }
+  },
+  "Goa": {
+    "status": "success",
+    "nodes": 32845,
+    "edges": 78513,
+    "state": "Goa",
+    "pop": "0.7M",
+    "bbox": {
+      "north": 15.8,
+      "south": 15.0,
+      "east": 74.1,
+      "west": 73.6
+    }
+  },
+  "Delhi": {
+    "status": "cached",
+    "nodes": 451772,
+    "edges": 1188738,
+    "state": "Delhi",
+    "pop": "32.9M"
+  },
+  "Jaipur": {
+    "status": "success",
+    "nodes": 132465,
+    "edges": 345723,
+    "state": "Rajasthan",
+    "pop": "3.9M",
+    "bbox": {
+      "north": 27.25,
+      "south": 26.6,
+      "east": 76.1,
+      "west": 75.5
+    }
+  },
+  "Lucknow": {
+    "status": "success",
+    "nodes": 74352,
+    "edges": 192457,
+    "state": "Uttar Pradesh",
+    "pop": "3.8M",
+    "bbox": {
+      "north": 27.2,
+      "south": 26.55,
+      "east": 81.3,
+      "west": 80.7
+    }
+  },
+  "Kanpur": {
+    "status": "success",
+    "nodes": 69805,
+    "edges": 186693,
+    "state": "Uttar Pradesh",
+    "pop": "3.1M",
+    "bbox": {
+      "north": 26.7,
+      "south": 26.2,
+      "east": 80.7,
+      "west": 80.1
+    }
+  },
+  "Agra": {
+    "status": "success",
+    "nodes": 51201,
+    "edges": 132007,
+    "state": "Uttar Pradesh",
+    "pop": "1.8M",
+    "bbox": {
+      "north": 27.4,
+      "south": 26.95,
+      "east": 78.35,
+      "west": 77.85
+    }
+  },
+  "Varanasi": {
+    "status": "success",
+    "nodes": 79754,
+    "edges": 197113,
+    "state": "Uttar Pradesh",
+    "pop": "1.6M",
+    "bbox": {
+      "north": 25.55,
+      "south": 25.15,
+      "east": 83.25,
+      "west": 82.75
+    }
+  },
+  "Meerut": {
+    "status": "success",
+    "nodes": 51506,
+    "edges": 131882,
+    "state": "Uttar Pradesh",
+    "pop": "1.7M",
+    "bbox": {
+      "north": 29.15,
+      "south": 28.7,
+      "east": 77.95,
+      "west": 77.45
+    }
+  },
+  "Chandigarh": {
+    "status": "success",
+    "nodes": 52013,
+    "edges": 133481,
+    "state": "Punjab",
+    "pop": "1.2M",
+    "bbox": {
+      "north": 30.95,
+      "south": 30.55,
+      "east": 77.05,
+      "west": 76.65
+    }
+  },
+  "Amritsar": {
+    "status": "success",
+    "nodes": 50918,
+    "edges": 129444,
+    "state": "Punjab",
+    "pop": "1.3M",
+    "bbox": {
+      "north": 31.85,
+      "south": 31.45,
+      "east": 75.15,
+      "west": 74.65
+    }
+  },
+  "Ludhiana": {
+    "status": "success",
+    "nodes": 84456,
+    "edges": 224499,
+    "state": "Punjab",
+    "pop": "1.8M",
+    "bbox": {
+      "north": 31.1,
+      "south": 30.65,
+      "east": 76.1,
+      "west": 75.65
+    }
+  },
+  "Kolkata": {
+    "status": "success",
+    "nodes": 271205,
+    "edges": 662181,
+    "state": "West Bengal",
+    "pop": "14.8M",
+    "bbox": {
+      "north": 22.95,
+      "south": 22.2,
+      "east": 88.65,
+      "west": 88.05
+    }
+  },
+  "Bhubaneswar": {
+    "status": "success",
+    "nodes": 52077,
+    "edges": 129990,
+    "state": "Odisha",
+    "pop": "1.0M",
+    "bbox": {
+      "north": 20.55,
+      "south": 20.05,
+      "east": 86.1,
+      "west": 85.6
+    }
+  },
+  "Patna": {
+    "status": "success",
+    "nodes": 74358,
+    "edges": 180221,
+    "state": "Bihar",
+    "pop": "2.5M",
+    "bbox": {
+      "north": 25.85,
+      "south": 25.35,
+      "east": 85.5,
+      "west": 84.9
+    }
+  },
+  "Ranchi": {
+    "status": "success",
+    "nodes": 52947,
+    "edges": 128798,
+    "state": "Jharkhand",
+    "pop": "1.4M",
+    "bbox": {
+      "north": 23.6,
+      "south": 23.1,
+      "east": 85.65,
+      "west": 85.1
+    }
+  },
+  "Guwahati": {
+    "status": "success",
+    "nodes": 30286,
+    "edges": 70884,
+    "state": "Assam",
+    "pop": "1.4M",
+    "bbox": {
+      "north": 26.4,
+      "south": 25.95,
+      "east": 92.1,
+      "west": 91.5
+    }
+  },
+  "Siliguri": {
+    "status": "success",
+    "nodes": 26010,
+    "edges": 67215,
+    "state": "West Bengal",
+    "pop": "0.7M",
+    "bbox": {
+      "north": 26.9,
+      "south": 26.55,
+      "east": 88.6,
+      "west": 88.25
+    }
+  },
+  "Bhopal": {
+    "status": "success",
+    "nodes": 67671,
+    "edges": 174282,
+    "state": "Madhya Pradesh",
+    "pop": "2.4M",
+    "bbox": {
+      "north": 23.5,
+      "south": 23.0,
+      "east": 77.7,
+      "west": 77.15
+    }
+  },
+  "Indore": {
+    "status": "success",
+    "nodes": 73339,
+    "edges": 190902,
+    "state": "Madhya Pradesh",
+    "pop": "3.3M",
+    "bbox": {
+      "north": 23.0,
+      "south": 22.45,
+      "east": 76.2,
+      "west": 75.65
+    }
+  },
+  "Raipur": {
+    "status": "failed"
+  },
+  "Jabalpur": {
+    "status": "success",
+    "nodes": 32393,
+    "edges": 81420,
+    "state": "Madhya Pradesh",
+    "pop": "1.4M",
+    "bbox": {
+      "north": 23.35,
+      "south": 22.9,
+      "east": 80.25,
+      "west": 79.7
+    }
+  },
+  "Gwalior": {
+    "status": "success",
+    "nodes": 38978,
+    "edges": 99369,
+    "state": "Madhya Pradesh",
+    "pop": "1.2M",
+    "bbox": {
+      "north": 26.45,
+      "south": 25.95,
+      "east": 78.5,
+      "west": 77.95
+    }
+  },
+  "Dehradun": {
+    "status": "success",
+    "nodes": 41105,
+    "edges": 93280,
+    "state": "Uttarakhand",
+    "pop": "0.8M",
+    "bbox": {
+      "north": 30.55,
+      "south": 30.1,
+      "east": 78.25,
+      "west": 77.8
+    }
+  },
+  "Jodhpur": {
+    "status": "success",
+    "nodes": 61891,
+    "edges": 160262,
+    "state": "Rajasthan",
+    "pop": "1.4M",
+    "bbox": {
+      "north": 26.5,
+      "south": 26.05,
+      "east": 73.25,
+      "west": 72.8
+    }
+  },
+  "Kota": {
+    "status": "success",
+    "nodes": 34177,
+    "edges": 91004,
+    "state": "Rajasthan",
+    "pop": "1.2M",
+    "bbox": {
+      "north": 25.35,
+      "south": 24.9,
+      "east": 76.05,
+      "west": 75.6
+    }
+  },
+  "Vijayawada": {
+    "status": "success",
+    "nodes": 97263,
+    "edges": 252322,
+    "state": "Andhra Pradesh",
+    "pop": "1.5M",
+    "bbox": {
+      "north": 16.75,
+      "south": 16.25,
+      "east": 80.9,
+      "west": 80.35
+    }
+  },
+  "Warangal": {
+    "status": "success",
+    "nodes": 51104,
+    "edges": 131711,
+    "state": "Telangana",
+    "pop": "0.8M",
+    "bbox": {
+      "north": 18.2,
+      "south": 17.75,
+      "east": 79.8,
+      "west": 79.3
+    }
+  },
+  "Tirupati": {
+    "status": "success",
+    "nodes": 19801,
+    "edges": 50368,
+    "state": "Andhra Pradesh",
+    "pop": "0.5M",
+    "bbox": {
+      "north": 13.85,
+      "south": 13.45,
+      "east": 79.65,
+      "west": 79.25
+    }
+  },
+  "Salem": {
+    "status": "success",
+    "nodes": 48166,
+    "edges": 126270,
+    "state": "Tamil Nadu",
+    "pop": "0.9M",
+    "bbox": {
+      "north": 11.85,
+      "south": 11.45,
+      "east": 78.35,
+      "west": 77.9
+    }
+  },
+  "Hubli": {
+    "status": "success",
+    "nodes": 30930,
+    "edges": 84892,
+    "state": "Karnataka",
+    "pop": "0.9M",
+    "bbox": {
+      "north": 15.55,
+      "south": 15.1,
+      "east": 75.35,
+      "west": 74.9
+    }
+  },
+  "Mangalore": {
+    "status": "success",
+    "nodes": 23789,
+    "edges": 55945,
+    "state": "Karnataka",
+    "pop": "0.6M",
+    "bbox": {
+      "north": 13.1,
+      "south": 12.7,
+      "east": 75.1,
+      "west": 74.7
+    }
+  }
+}
