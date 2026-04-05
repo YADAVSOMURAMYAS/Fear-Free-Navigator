@@ -24,36 +24,9 @@ pip-delete-this-directory.txt
 !.env.example
 
 # ── Large data files ───────────────────────────────────────────────────────────
-# Graph files (too large for GitHub — 30-500MB each)
-data/raw/*.graphml
-data/processed/*.graphml
-data/india/city_graphs/
-
-# Feature stores (large CSVs)
-data/india/features/
-data/processed/*.csv
-data/raw/*.csv
-
-# VIIRS numpy arrays and HDF5
-data/raw/viirs/
-data/india/viirs/
-data/raw/*.h5
-
-# Raw GeoJSON / JSON dumps (large)
-data/raw/*.geojson
-data/raw/*.json
-data/india/city_pois/
-data/india/features/*.geojson
-
-# Street view images
-data/raw/bengaluru_streetview_images/
-data/raw/*_images/
-
-# Keep small metadata files
-!data/raw/city_crime_index.json
-!data/raw/viirs_stats.json
-!data/india/city_metadata.json
-!data/india/city_index.csv
+# Keep the entire data directory local-only.
+data/
+data.zip
 
 # ── Cache directories ───────────────────────────────────────────────────────────
 cache/

@@ -45,7 +45,11 @@ cd fear-free-navigator
 
 ## 2. Restore data folder from Google Drive
 
-Copy your Drive backup so this repo has at least:
+Download the data backup from this Drive link:
+
+https://drive.google.com/file/d/130x6g2zbcqDrNx7v-VSyDnPARNMt5lel/view?usp=sharing
+
+Extract or copy the archive so this repo has at least:
 
 - `data/india/city_graphs/*.graphml` (required)
 - `data/india/features/*_feature_store.csv` (recommended for ML scoring)
@@ -54,7 +58,9 @@ Copy your Drive backup so this repo has at least:
 
 Minimum required for app to run: `data/india/city_graphs/*.graphml`.
 
-## 3. Backend setup (Windows PowerShell)
+## 3. Run the backend locally
+
+Open PowerShell in the project root and run:
 
 ```powershell
 python -m venv venv
@@ -65,7 +71,9 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 Backend docs: `http://localhost:8000/docs`
 
-## 4. Frontend setup
+## 4. Run the frontend locally
+
+Open a second PowerShell window and run:
 
 ```powershell
 cd frontend
