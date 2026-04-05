@@ -162,7 +162,6 @@ MIT
 | 📦 GitHub (this repo) | https://github.com/YADAVSOMURAMYAS/Fear-Free-Navigator |
 | 📦 Bengaluru deep-dive repo | https://github.com/YADAVSOMURAMYAS/Fear_Free_Navigator_Bangalore |
 | 📁 Data Folder (Google Drive ZIP) | https://drive.google.com/file/d/130x6g2zbcqDrNx7v-VSyDnPARNMt5lel/view?usp=sharing |
-| 🎥 Demo Video | [YouTube Link] |
 
 > ⚠️ **No live hosted demo** — loading 49 city graphs into RAM requires significant memory and exceeds all free hosting tiers. Run locally using the steps below.
 
