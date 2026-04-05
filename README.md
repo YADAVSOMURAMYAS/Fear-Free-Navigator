@@ -1,7 +1,7 @@
 # Fear-Free Navigator
 
 Multi-city safety-aware navigation for India. The app computes safe and fast routes using city road graphs, lighting (VIIRS), crime priors, and ML safety scoring.
-
+|     Video Link : https://drive.google.com/file/d/1_et1PsZWohzQcLgTJ11w262HCvbK0_f5/view?usp=sharing |
 ## Current state
 
 - Multi-city routing is live (city-aware route and heatmap APIs).
