@@ -5,6 +5,7 @@ Routing with travel mode support.
 Modes: car, motorcycle, walking, cycling
 """
 
+import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, Query
 
@@ -54,7 +55,13 @@ async def get_route(
     mode:        str   = Query("car", description="car/motorcycle/walking/cycling"),
 ):
     try:
-        from routing.city_router import route_in_city, detect_city, get_available_cities
+        from routing.city_router import (
+            CityPipelineCancelled,
+            begin_latest_city_pipeline,
+            route_in_city,
+            detect_city,
+            get_available_cities,
+        )
 
         # Validate mode
         if mode not in MODE_SPEEDS:
@@ -85,16 +92,19 @@ async def get_route(
 
         # Use mode-specific alpha if not overridden
         effective_alpha = alpha if alpha != 0.7 else MODE_ALPHA.get(mode, 0.7)
+        pipeline_generation = begin_latest_city_pipeline(city)
 
-        result = route_in_city(
-            city_name  = city,
-            origin_lat = origin_lat,
-            origin_lon = origin_lon,
-            dest_lat   = dest_lat,
-            dest_lon   = dest_lon,
-            alpha      = effective_alpha,
-            hour       = hour,
-            mode       = mode,
+        result = await asyncio.to_thread(
+            route_in_city,
+            city,
+            origin_lat,
+            origin_lon,
+            dest_lat,
+            dest_lon,
+            effective_alpha,
+            hour,
+            mode,
+            pipeline_generation,
         )
 
         if "error" in result:
@@ -109,6 +119,16 @@ async def get_route(
         )
 
         return result
+
+    except CityPipelineCancelled as e:
+        log.info(f"Route request superseded by newer city selection: {e}")
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "City changed while processing route. "
+                "Please retry with the latest city selection."
+            ),
+        )
 
     except HTTPException:
         raise

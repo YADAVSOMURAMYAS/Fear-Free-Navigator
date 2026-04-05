@@ -9,6 +9,7 @@ runs time-aware dual Dijkstra.
 import json
 import logging
 import time
+import threading
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -26,6 +27,57 @@ VIIRS_DIR   = DATA_RAW / "viirs"
 _graph_cache      = {}
 _graph_cache_time = {}
 CACHE_TTL = 3600
+
+_pipeline_lock = threading.RLock()
+_active_city_name: str | None = None
+_active_pipeline_generation = 0
+_city_build_locks_guard = threading.RLock()
+_city_build_locks: dict[str, threading.Lock] = {}
+
+
+class CityPipelineCancelled(RuntimeError):
+    """Raised when a newer city request supersedes an in-flight pipeline."""
+
+
+def begin_latest_city_pipeline(city_name: str) -> int:
+    """
+    Registers the active city pipeline and returns its generation id.
+    Generation only increments when city changes, so concurrent requests
+    for the same city can share the same generation.
+    """
+    global _active_city_name, _active_pipeline_generation
+    with _pipeline_lock:
+        if _active_city_name != city_name:
+            _active_city_name = city_name
+            _active_pipeline_generation += 1
+            log.info(
+                "City pipeline switched to %s (gen=%s)",
+                city_name,
+                _active_pipeline_generation,
+            )
+        return _active_pipeline_generation
+
+
+def _assert_pipeline_active(city_name: str, pipeline_generation: int | None):
+    if pipeline_generation is None:
+        return
+    with _pipeline_lock:
+        active_city = _active_city_name
+        active_gen = _active_pipeline_generation
+    if active_city != city_name or active_gen != pipeline_generation:
+        raise CityPipelineCancelled(
+            f"Cancelled stale pipeline for {city_name} "
+            f"(gen={pipeline_generation}, active={active_city}/{active_gen})"
+        )
+
+
+def _get_city_build_lock(city_name: str) -> threading.Lock:
+    with _city_build_locks_guard:
+        lock = _city_build_locks.get(city_name)
+        if lock is None:
+            lock = threading.Lock()
+            _city_build_locks[city_name] = lock
+        return lock
 
 
 def _sf(val, default=0.0):
@@ -76,49 +128,76 @@ def _load_viirs(city_name: str) -> np.ndarray | None:
 # 3.  GRAPH LOADING WITH FULL SCORING
 # ──────────────────────────────────────────────────────────────────────────────
 
-def load_city_graph(city_name: str):
+def load_city_graph(city_name: str, pipeline_generation: int | None = None):
     """
     Loads and scores city graph.
     Injects VIIRS luminosity + crime density + safety scores.
     Cached in memory for 1 hour.
     """
     now = time.time()
+    _assert_pipeline_active(city_name, pipeline_generation)
+
     if city_name in _graph_cache:
         if now - _graph_cache_time.get(city_name, 0) < CACHE_TTL:
             return _graph_cache[city_name]
 
-    # Find graph file
-    fname = city_name.lower().replace(" ", "_") + ".graphml"
-    path  = CITY_GRAPHS / fname
+    # Ensure only one thread builds a given city graph at a time.
+    # Other concurrent requests wait and then reuse cache.
+    city_lock = _get_city_build_lock(city_name)
+    while True:
+        _assert_pipeline_active(city_name, pipeline_generation)
+        if city_lock.acquire(timeout=0.5):
+            break
 
-    if not path.exists():
-        log.warning(f"Graph not found: {city_name}. Falling back to Bengaluru.")
-        if city_name != "Bengaluru":
-            return load_city_graph("Bengaluru")
-        # Try processed graph
-        for p in [
-            DATA_PROC / "bengaluru_scored_graph.graphml",
-            Path("data/raw/bengaluru_graph.graphml"),
-        ]:
-            if p.exists():
-                path = p
-                break
-        else:
-            raise FileNotFoundError("No graph found. Run ingestion first.")
+    try:
+        # Cache may have been filled while waiting for the lock.
+        now = time.time()
+        if city_name in _graph_cache:
+            if now - _graph_cache_time.get(city_name, 0) < CACHE_TTL:
+                return _graph_cache[city_name]
 
-    log.info(f"Loading: {city_name}")
-    G = ox.load_graphml(path)
-    log.info(f"  {city_name}: {len(G.nodes):,} nodes, {len(G.edges):,} edges")
+        # Find graph file
+        fname = city_name.lower().replace(" ", "_") + ".graphml"
+        path  = CITY_GRAPHS / fname
 
-    # Inject all scores
-    G = _inject_all_scores(G, city_name)
+        if not path.exists():
+            log.warning(f"Graph not found: {city_name}. Falling back to Bengaluru.")
+            if city_name != "Bengaluru":
+                return load_city_graph("Bengaluru")
+            # Try processed graph
+            for p in [
+                DATA_PROC / "bengaluru_scored_graph.graphml",
+                Path("data/raw/bengaluru_graph.graphml"),
+            ]:
+                if p.exists():
+                    path = p
+                    break
+            else:
+                raise FileNotFoundError("No graph found. Run ingestion first.")
 
-    _graph_cache[city_name]      = G
-    _graph_cache_time[city_name] = now
-    return G
+        log.info(f"Loading: {city_name}")
+        G = ox.load_graphml(path)
+        log.info(f"  {city_name}: {len(G.nodes):,} nodes, {len(G.edges):,} edges")
+
+        # Inject all scores
+        G = _inject_all_scores(
+            G,
+            city_name,
+            pipeline_generation=pipeline_generation,
+        )
+
+        _graph_cache[city_name]      = G
+        _graph_cache_time[city_name] = now
+        return G
+    finally:
+        city_lock.release()
 
 
-def _inject_all_scores(G, city_name: str):
+def _inject_all_scores(
+    G,
+    city_name: str,
+    pipeline_generation: int | None = None,
+):
     """
     Injects 3 data sources into graph edges:
     1. VIIRS luminosity (real satellite data)
@@ -128,6 +207,7 @@ def _inject_all_scores(G, city_name: str):
     from ingestion.fetch_india_graph import CITY_BBOXES
 
     bbox = CITY_BBOXES.get(city_name)
+    _assert_pipeline_active(city_name, pipeline_generation)
 
     # ── 1. VIIRS luminosity ────────────────────────────────────────────────────
     viirs = _load_viirs(city_name)
@@ -137,7 +217,9 @@ def _inject_all_scores(G, city_name: str):
         lat_range = bbox["north"] - bbox["south"]
         lon_range = bbox["east"]  - bbox["west"]
 
-        for u, v, data in G.edges(data=True):
+        for i, (u, v, data) in enumerate(G.edges(data=True)):
+            if i % 2000 == 0:
+                _assert_pipeline_active(city_name, pipeline_generation)
             try:
                 mid_lat = (_sf(G.nodes[u]["y"]) + _sf(G.nodes[v]["y"])) / 2
                 mid_lon = (_sf(G.nodes[u]["x"]) + _sf(G.nodes[v]["x"])) / 2
@@ -150,27 +232,46 @@ def _inject_all_scores(G, city_name: str):
                 data["luminosity_score"] = 35.0
     else:
         log.info(f"  Using highway-type luminosity proxy ...")
-        _inject_luminosity_proxy(G)
+        _inject_luminosity_proxy(
+            G,
+            city_name=city_name,
+            pipeline_generation=pipeline_generation,
+        )
 
     # ── 2. Crime density ───────────────────────────────────────────────────────
     log.info(f"  Injecting crime density ...")
-    _inject_crime_density(G, city_name, bbox)
+    _inject_crime_density(
+        G,
+        city_name,
+        bbox,
+        pipeline_generation=pipeline_generation,
+    )
 
     # ── 3. Safety score ────────────────────────────────────────────────────────
     log.info(f"  Computing safety scores ...")
-    _inject_safety_scores(G, city_name)
+    _inject_safety_scores(
+        G,
+        city_name,
+        pipeline_generation=pipeline_generation,
+    )
 
     return G
 
 
-def _inject_luminosity_proxy(G):
+def _inject_luminosity_proxy(
+    G,
+    city_name: str | None = None,
+    pipeline_generation: int | None = None,
+):
     """Highway-type luminosity when VIIRS unavailable."""
     HW_LUM = {
         "motorway":     88, "trunk":        82, "primary":    75,
         "secondary":    65, "tertiary":     50, "residential":38,
         "living_street":28, "unclassified": 25, "service":    20,
     }
-    for u, v, data in G.edges(data=True):
+    for i, (u, v, data) in enumerate(G.edges(data=True)):
+        if city_name is not None and i % 2000 == 0:
+            _assert_pipeline_active(city_name, pipeline_generation)
         if "luminosity_score" not in data:
             hw  = data.get("highway", "residential")
             if isinstance(hw, list): hw = hw[0]
@@ -180,13 +281,20 @@ def _inject_luminosity_proxy(G):
             )
 
 
-def _inject_crime_density(G, city_name: str, bbox: dict | None):
+def _inject_crime_density(
+    G,
+    city_name: str,
+    bbox: dict | None,
+    pipeline_generation: int | None = None,
+):
     """Assigns crime density to all edges using zone model."""
     zones = _load_crime_zones(city_name)
     base  = _load_crime_index().get(city_name, 0.35)
     DEG   = 1 / 111_320
 
-    for u, v, data in G.edges(data=True):
+    for i, (u, v, data) in enumerate(G.edges(data=True)):
+        if i % 2000 == 0:
+            _assert_pipeline_active(city_name, pipeline_generation)
         if "crime_density" in data:
             try:
                 float(data["crime_density"])
@@ -223,12 +331,17 @@ def _inject_crime_density(G, city_name: str, bbox: dict | None):
         data["night_crime_density"] = round(min(0.95, crime * 1.35), 3)
 
 
-def _inject_safety_scores(G, city_name: str):
+def _inject_safety_scores(
+    G,
+    city_name: str,
+    pipeline_generation: int | None = None,
+):
     """
     Uses All-India XGBoost model for all cities.
     Falls back to PSI formula if model unavailable.
     """
     from ai.ml.features import FEATURE_COLS
+    _assert_pipeline_active(city_name, pipeline_generation)
 
     # Try India model first
     india_model_path = Path("ai/ml/artifacts/india_safety_model.pkl")
@@ -266,7 +379,9 @@ def _inject_safety_scores(G, city_name: str):
                 score_map= {k: float(np.clip(s, 0, 100))
                             for k, s in zip(keys, scores)}
 
-                for u, v, k, data in G.edges(data=True, keys=True):
+                for i, (u, v, k, data) in enumerate(G.edges(data=True, keys=True)):
+                    if i % 2000 == 0:
+                        _assert_pipeline_active(city_name, pipeline_generation)
                     key   = (str(u), str(v), str(k))
                     score = score_map.get(key, 40.0)
                     data["safety_score"] = round(score, 2)
@@ -459,6 +574,7 @@ def route_in_city(
     alpha:      float = 0.7,
     hour:       int   = 22,
     mode:       str   = "car",
+    pipeline_generation: int | None = None,
 ) -> dict:
     """
     Routes between two points with mode-specific behavior.
@@ -475,7 +591,7 @@ def route_in_city(
         f"α={alpha} h={hour} mode={mode}"
     )
 
-    G = load_city_graph(city_name)
+    G = load_city_graph(city_name, pipeline_generation=pipeline_generation)
 
     # ── Mode-specific settings ─────────────────────────────────────────────────
     MODE_CONFIG = {

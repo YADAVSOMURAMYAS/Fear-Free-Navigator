@@ -4,10 +4,11 @@ api/routers/heatmap.py
 Safety heatmap endpoint — works for all 50 cities.
 """
 
+import asyncio
 import logging
 import random
 import numpy as np
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from api.models.response import HeatmapResponse
 
 log    = logging.getLogger("api.heatmap")
@@ -20,8 +21,17 @@ async def get_heatmap(
     city:      str = Query("Bengaluru"),
 ):
     try:
-        from routing.city_router import load_city_graph
-        G      = load_city_graph(city)
+        from routing.city_router import (
+            CityPipelineCancelled,
+            begin_latest_city_pipeline,
+            load_city_graph,
+        )
+        pipeline_generation = begin_latest_city_pipeline(city)
+        G = await asyncio.to_thread(
+            load_city_graph,
+            city,
+            pipeline_generation,
+        )
         points = []
 
         for u, v, data in G.edges(data=True):
@@ -54,6 +64,16 @@ async def get_heatmap(
             points = random.sample(points, sample_n)
 
         return HeatmapResponse(points=points, count=len(points))
+
+    except CityPipelineCancelled as e:
+        log.info(f"Heatmap request superseded by newer city selection: {e}")
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "City changed while processing heatmap. "
+                "Please retry with the latest city selection."
+            ),
+        )
 
     except Exception as e:
         log.error(f"Heatmap error: {e}")
