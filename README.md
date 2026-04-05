@@ -1,114 +1,137 @@
 # Fear-Free Navigator
 
-A safety-aware routing app for Bengaluru that suggests pedestrian routes based on real-time safety scores — not just travel time. Built for the Google Hackathon.
+Multi-city safety-aware navigation for India. The app computes safe and fast routes using city road graphs, lighting (VIIRS), crime priors, and ML safety scoring.
 
-## What it does
+## Current state
 
-- Scores every road segment in Bengaluru using street-level imagery (CLIP/ViT), crime data, lighting (VIIRS night lights), and OSM features
-- Offers a tuneable **alpha** slider: `0 = fastest route`, `1 = safest route`
-- Explains *why* a route is safer using SHAP + Claude LLM narration
-- Generates heatmaps of unsafe zones across the city
-- Asynchronous pipeline via Celery + Redis; results cached in PostGIS
+- Multi-city routing is live (city-aware route and heatmap APIs).
+- Frontend supports city switching.
+- If city is switched during processing, stale requests are cancelled/superseded.
+- Large data assets are expected to be downloaded separately (for example from Google Drive).
 
-## Architecture
+## Project structure
 
-```
+```text
 fear-free-navigator/
-├── api/          # FastAPI backend — routes, scoring, heatmap, report endpoints
-├── ai/
-│   ├── cv/       # CLIP-based image scoring (brightness, segment features)
-│   ├── llm/      # Claude-powered route explanation
-│   └── ml/       # LightGBM/XGBoost safety model, SHAP explainer
-├── ingestion/    # Data pipeline: OSM, Mapillary, VIIRS, crime data
-├── routing/      # Safety-weighted graph routing (osmnx + networkx)
-├── workers/      # Celery async task workers
-├── data/         # Raw + processed geospatial data (gitignored)
-├── db/           # PostGIS schema / migrations
-├── evaluation/   # Benchmark against Google Maps routes
-└── frontend/     # React + Leaflet map UI
+├── api/                 FastAPI app and routers
+├── routing/             Multi-city routing engine
+├── ingestion/           Data generation and refresh scripts
+├── ai/ml/               Model features, training, prediction artifacts
+├── frontend/            React app (Leaflet map UI)
+├── evaluation/          Benchmark scripts
+└── data/                Large runtime data (not committed)
+	├── india/
+	│   ├── city_graphs/ *.graphml
+	│   └── features/    *_feature_store.csv (optional but recommended)
+	├── raw/
+	│   ├── viirs/*.npy
+	│   ├── city_crime_index.json
+	│   └── city_crime_zones.json
+	└── processed/
 ```
 
-## Quick start
-
-### Prerequisites
+## Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- Docker + Docker Compose
-- PostgreSQL with PostGIS extension (provided via Docker)
-- Redis (provided via Docker)
+- npm
 
-### 1. Clone and configure
+## 1. Clone repository
 
 ```bash
-git clone https://github.com/your-username/fear-free-navigator.git
+git clone https://github.com/YADAVSOMURAMYAS/Fear-Free-Navigator.git
 cd fear-free-navigator
-cp .env.example .env
-# Edit .env and fill in your API keys (see Required API Keys below)
 ```
 
-### 2. Start infrastructure
+## 2. Restore data folder from Google Drive
 
-```bash
-docker-compose up -d   # starts PostGIS + Redis
-```
+Copy your Drive backup so this repo has at least:
 
-### 3. Backend
+- `data/india/city_graphs/*.graphml` (required)
+- `data/india/features/*_feature_store.csv` (recommended for ML scoring)
+- `data/raw/viirs/*.npy` (recommended; otherwise luminosity proxy is used)
+- `data/raw/city_crime_index.json` and `data/raw/city_crime_zones.json` (recommended)
 
-```bash
+Minimum required for app to run: `data/india/city_graphs/*.graphml`.
+
+## 3. Backend setup (Windows PowerShell)
+
+```powershell
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn api.main:app --reload
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 4. Frontend
+Backend docs: `http://localhost:8000/docs`
 
-```bash
+## 4. Frontend setup
+
+```powershell
 cd frontend
 npm install
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Frontend URL: `http://localhost:3000`
 
-## Required API keys
+## 5. Verify everything is working
 
-| Service | Purpose | Free tier |
-|---|---|---|
-| [NASA EarthData](https://urs.earthdata.nasa.gov/users/new) | VIIRS night-light rasters | Yes |
-| [Mapillary](https://www.mapillary.com/signup) | Street-level imagery | Yes |
-| [Google Maps](https://console.cloud.google.com/) | Route benchmarking | $200/mo credit |
-| [Anthropic](https://console.anthropic.com/account/keys) | LLM route explanations | Pay-per-use |
+From browser or Swagger:
 
-Overpass API (OSM) requires no key.
+- `GET /health`
+- `GET /cities`
+- `GET /heatmap/?sample_n=3000&city=Ahmedabad`
+- `GET /route/?origin_lat=23.0225&origin_lon=72.5714&dest_lat=23.0473&dest_lon=72.5074&city=Ahmedabad&hour=12&alpha=0.7&mode=car`
 
-## Data pipeline
+Expected:
 
-Run once to build the feature store:
+- `/cities` returns available city names from `data/india/city_graphs`.
+- Route response includes `safe_route` and `fast_route`.
+- Heatmap returns non-empty `points` for populated city data.
 
-```bash
-python ingestion/build_feature_store.py
+## Notes on fallback behavior
+
+- Missing VIIRS arrays -> highway-type luminosity proxy is used.
+- Missing city feature store CSV -> PSI proxy safety score is used.
+- Missing crime JSON files -> built-in crime priors/generation are used.
+
+So the system can still run with partial data, but output quality may be lower.
+
+## Optional data refresh workflows
+
+- Rebuild/refresh city graphs:
+
+```powershell
+python -m ingestion.fetch_india_graph
 ```
 
-This fetches OSM features, Mapillary images, VIIRS tiles, and crime data, then trains the safety model.
+- Fetch/update VIIRS arrays:
 
-## Model
+```powershell
+python -m ingestion.fetch_viirs_real
+```
 
-- Features: crime density, lighting score, CLIP visual score, lamp/shop/police proximity, CCTV density
-- Model: LightGBM + XGBoost ensemble
-- Explainability: SHAP values + Claude narration
+- Build synthetic multi-city feature stores:
 
-See `ai/ml/artifacts/eval_metrics.json` for current accuracy metrics.
+```powershell
+python -m ingestion.build_india_features_synthetic
+```
 
-## API endpoints
+- Train India model:
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/route` | Get safety-weighted route |
-| `POST` | `/score` | Score a road segment |
-| `GET` | `/heatmap` | Safety heatmap GeoJSON |
-| `GET` | `/report` | Detailed route safety report |
+```powershell
+python -m ai.ml.train_india
+```
+
+## API summary
+
+- `GET /route/` route between two points for a selected city
+- `GET /heatmap/` city safety heatmap sample
+- `GET /cities/` list supported cities
+- `GET /cities/detect` infer city from coordinates
+- `GET /score/` single-point score helper
+- `POST /report/` submit crowd report
 
 ## License
 
