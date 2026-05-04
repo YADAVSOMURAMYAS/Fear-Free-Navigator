@@ -15,15 +15,17 @@ router = APIRouter(prefix="/cities", tags=["cities"])
 async def get_cities():
     """Returns list of all cities with downloaded graphs."""
     try:
+        log.info(f"📍 Fetching available cities...")
         from routing.city_router import get_available_cities
         cities = get_available_cities()
+        log.info(f"   ✓ Found {len(cities)} cities: {', '.join(cities[:5])}{'...' if len(cities) > 5 else ''}")
         return {
             "cities":  cities,
             "total":   len(cities),
             "default": "Bengaluru",
         }
     except Exception as e:
-        log.error(f"Cities error: {e}")
+        log.error(f"❌ Cities error: {e}")
         return {
             "cities":  ["Bengaluru"],
             "total":   1,

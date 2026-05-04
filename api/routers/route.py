@@ -9,6 +9,20 @@ import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, Query
 
+# Import routing dependencies at module level
+try:
+    from routing.city_router import (
+        CityPipelineCancelled,
+        begin_latest_city_pipeline,
+        route_in_city,
+        detect_city,
+        get_available_cities,
+    )
+except ImportError as e:
+    log_import_error = logging.getLogger("api.route")
+    log_import_error.error(f"Failed to import routing modules: {e}")
+    raise
+
 log    = logging.getLogger("api.route")
 router = APIRouter(prefix="/route", tags=["routing"])
 
@@ -55,23 +69,23 @@ async def get_route(
     mode:        str   = Query("car", description="car/motorcycle/walking/cycling"),
 ):
     try:
-        from routing.city_router import (
-            CityPipelineCancelled,
-            begin_latest_city_pipeline,
-            route_in_city,
-            detect_city,
-            get_available_cities,
-        )
-
+        # Log incoming request
+        log.info(f"🚗 Route Request: {city} | Origin: ({origin_lat:.4f}, {origin_lon:.4f}) | Dest: ({dest_lat:.4f}, {dest_lon:.4f})")
+        log.info(f"   Mode: {mode} | Time: {hour}:00 | Safety: {alpha} | AutoDetect: {auto_detect}")
+        
         # Validate mode
         if mode not in MODE_SPEEDS:
+            log.warning(f"Invalid mode '{mode}', defaulting to 'car'")
             mode = "car"
 
         # Auto detect city
         if auto_detect or city == "auto":
+            log.info("🔍 Auto-detecting city from coordinates...")
             city = detect_city(origin_lat, origin_lon)
+            log.info(f"   ✓ Detected city: {city}")
 
         # Check if city is available
+        log.info(f"📍 Checking city availability...")
         available = get_available_cities()
         city_available = any(
             c.lower() == city.lower() for c in available
@@ -79,9 +93,11 @@ async def get_route(
 
         if not city_available:
             # Find nearest available city
+            log.warning(f"❌ City '{city}' not available. Finding nearest...")
             nearest = _find_nearest_available(
                 origin_lat, origin_lon, available
             )
+            log.info(f"   ✓ Nearest available: {nearest}")
             return {
                 "error":           "service_unavailable",
                 "message":         f"Service not yet available in {city}.",
@@ -90,10 +106,16 @@ async def get_route(
                 "city_requested":  city,
             }
 
+        log.info(f"   ✓ City '{city}' available")
+
         # Use mode-specific alpha if not overridden
         effective_alpha = alpha if alpha != 0.7 else MODE_ALPHA.get(mode, 0.7)
+        log.info(f"⚙️  Safety preference (α): {effective_alpha}")
+        
+        log.info(f"🔄 Starting city pipeline for {city}...")
         pipeline_generation = begin_latest_city_pipeline(city)
 
+        log.info(f"📊 Computing routes (this may take 10-30 seconds)...")
         result = await asyncio.to_thread(
             route_in_city,
             city,
@@ -108,15 +130,21 @@ async def get_route(
         )
 
         if "error" in result:
+            log.error(f"❌ Routing error: {result['error']}")
             raise HTTPException(status_code=404, detail=result["error"])
 
         # Add turn-by-turn directions
+        log.info(f"📍 Generating directions...")
         result["safe_route"]["directions"] = generate_directions(
             result["safe_route"]["segments"]
         )
         result["fast_route"]["directions"] = generate_directions(
             result["fast_route"]["segments"]
         )
+
+        log.info(f"✅ Route complete!")
+        log.info(f"   Safe route: {result['safe_route']['total_dist_km']:.2f}km, Score: {result['safe_route'].get('avg_safety_score', 'N/A')}")
+        log.info(f"   Fast route: {result['fast_route']['total_dist_km']:.2f}km, Score: {result['fast_route'].get('avg_safety_score', 'N/A')}")
 
         return result
 

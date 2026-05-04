@@ -21,17 +21,23 @@ async def get_heatmap(
     city:      str = Query("Bengaluru"),
 ):
     try:
+        log.info(f"🔥 Heatmap Request: {city} | Samples: {sample_n}")
+        
         from routing.city_router import (
             CityPipelineCancelled,
             begin_latest_city_pipeline,
             load_city_graph,
         )
+        log.info(f"📊 Loading city graph for {city}...")
         pipeline_generation = begin_latest_city_pipeline(city)
         G = await asyncio.to_thread(
             load_city_graph,
             city,
             pipeline_generation,
         )
+        log.info(f"   ✓ Graph loaded: {len(G.nodes)} nodes, {len(G.edges)} edges")
+        
+        log.info(f"🗺️  Extracting safety scores from edges...")
         points = []
 
         for u, v, data in G.edges(data=True):
@@ -58,11 +64,15 @@ async def get_heatmap(
                 round(score, 1),
             ])
 
+        log.info(f"   ✓ Extracted {len(points)} safety points")
+
         # Sample for performance
         if len(points) > sample_n:
+            log.info(f"📉 Sampling {sample_n} points from {len(points)} (for performance)...")
             random.seed(42)
             points = random.sample(points, sample_n)
 
+        log.info(f"✅ Heatmap complete: {len(points)} points ready")
         return HeatmapResponse(points=points, count=len(points))
 
     except CityPipelineCancelled as e:

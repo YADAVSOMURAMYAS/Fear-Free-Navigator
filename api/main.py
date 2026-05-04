@@ -103,12 +103,15 @@ if frontend_path.exists():
 @app.get("/", tags=["health"])
 async def root():
     """Health check + API info."""
+    log.info("🏥 Health check requested")
     try:
         from routing.graph import get_graph
         G            = get_graph()
         graph_loaded = True
         n_edges      = len(G.edges)
-    except Exception:
+        log.info(f"   ✓ Graph: {len(G.nodes):,} nodes, {n_edges:,} edges")
+    except Exception as e:
+        log.warning(f"   ⚠️  Graph not loaded: {e}")
         graph_loaded = False
         n_edges      = 0
 
@@ -116,7 +119,9 @@ async def root():
         from ai.ml.predict import load_model
         load_model()
         model_loaded = True
-    except Exception:
+        log.info(f"   ✓ ML Model: Loaded")
+    except Exception as e:
+        log.warning(f"   ⚠️  Model not loaded: {e}")
         model_loaded = False
 
     return {
@@ -139,4 +144,5 @@ async def root():
 
 @app.get("/health", tags=["health"])
 async def health():
+    log.info("❤️  Health check (quick)")
     return {"status": "ok"}

@@ -164,16 +164,32 @@ def load_city_graph(city_name: str, pipeline_generation: int | None = None):
             log.warning(f"Graph not found: {city_name}. Falling back to Bengaluru.")
             if city_name != "Bengaluru":
                 return load_city_graph("Bengaluru")
-            # Try processed graph
+            # Try pre-scored graph first (fast path)
             for p in [
                 DATA_PROC / "bengaluru_scored_graph.graphml",
+                DATA_RAW / "bengaluru_graph.graphml",
                 Path("data/raw/bengaluru_graph.graphml"),
             ]:
                 if p.exists():
                     path = p
-                    break
-            else:
-                raise FileNotFoundError("No graph found. Run ingestion first.")
+                    log.info(f"Loading pre-scored graph: {path}")
+                    G = ox.load_graphml(path)
+                    log.info(f"  {city_name}: {len(G.nodes):,} nodes, {len(G.edges):,} edges")
+                    _graph_cache[city_name]      = G
+                    _graph_cache_time[city_name] = now
+                    return G
+            raise FileNotFoundError("No graph found. Run ingestion first.")
+
+        # Check if a pre-scored version exists (fast path for Bengaluru)
+        if city_name == "Bengaluru":
+            scored_path = DATA_PROC / "bengaluru_scored_graph.graphml"
+            if scored_path.exists() and scored_path.stat().st_mtime > path.stat().st_mtime:
+                log.info(f"Loading pre-scored graph (fast path): {scored_path}")
+                G = ox.load_graphml(scored_path)
+                log.info(f"  {city_name}: {len(G.nodes):,} nodes, {len(G.edges):,} edges")
+                _graph_cache[city_name]      = G
+                _graph_cache_time[city_name] = now
+                return G
 
         log.info(f"Loading: {city_name}")
         G = ox.load_graphml(path)
